@@ -56,7 +56,7 @@ node *cnewnode(int val)
 int balance_fac(node *n)
 {
     if (n == NULL)
-        return -999;
+        return 0;
     return height(n->left) - height(n->right);
 }
 
@@ -147,46 +147,60 @@ node *insert(node *rnode, int val)
     return rnode;
 }
 
-// unfin
-node *delete_leaf(node *n, int val)
+
+node *delete_node(node *n, int val)
 {
-    node *cur = n;
+
     if (search(n, val) == NULL)
     {
         printf("Node does not exist");
         return NULL;
     }
-    else if (val == cur->val)
+
+    if (val < n->val)
     {
-        return n;
+        n->left = delete_node(n->left, val);
     }
-    while (cur != NULL)
+    else if (val > n->val)
     {
-        if (val == cur->left->val)
-        {
-            node *temp = cur->left;
-            cur->left = NULL;
-            free(temp);
-            update_tree_height(n);
-            return n;
-        }
-        else if (val == cur->right->val)
-        {
-            node *temp = cur->right;
-            cur->right = NULL;
-            free(temp);
-            update_tree_height(n);
-            return n;
-        }
-        if (val < cur->val)
-        {
-            cur = cur->left;
-        }
-        else if (val > cur->val)
-        {
-            cur = cur->right;
-        }
+        n->right = delete_node(n->right, val);
     }
+
+    else if (val == n->val)
+    {
+        return NULL;
+    }
+
+    n->height = height(n);
+
+    int bfroot = balance_fac(n);
+    int bfl = balance_fac(n->left);
+    int bfr = balance_fac(n->right);
+
+    // LL
+    if (bfroot == 2 && bfl == 1)
+    {
+        return right_rotate(n);
+    }
+    // RR
+    else if (bfroot == -2 && bfr == -1)
+    {
+        return left_rotate(n);
+    }
+    // LR
+    else if (bfroot == 2 && bfl == -1)
+    {
+        n->left = left_rotate(n->left);
+        return right_rotate(n);
+    }
+    // RL
+    else if (bfroot == -2 && bfr == 1)
+    {
+        n->right = right_rotate(n->right);
+        return left_rotate(n);
+    }
+
+    return n;
 }
 
 void update_tree_height(node *root)
@@ -231,9 +245,9 @@ int main()
     node *root = cnewnode(10);
 
     root = insert(root, 9);
+    root = insert(root, 11);
     root = insert(root, 8);
-    node *t = search(root, 8);
-    delete_leaf(root, 8);
+    root = delete_node(root, 11);
     printf("%d", root->left->val);
     return 0;
 }
