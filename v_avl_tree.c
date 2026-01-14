@@ -18,7 +18,7 @@ bool search(node *node_ptr, int val){
     else
         return search(node_ptr->right, val);
 }
-
+//niger
 node* insert(node *node_ptr, int val){
     if(node_ptr)
 }
