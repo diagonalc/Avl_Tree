@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+
 typedef struct Node
 {
     int val;
@@ -13,7 +14,7 @@ typedef struct Node
 node *insert(node *rnode, int val);
 
 // 2. delete
-node *delete_leaf(node *n, int val); // unfin
+node *delete_node(node *n, int val); 
 // 3. search
 node *search(node *n, int val);
 
@@ -23,6 +24,7 @@ node *right_rotate(node *y);
 node *left_rotate(node *y);
 void update_tree_height(node *root);
 void balance_check(node *root);
+void print_tree(node *r);
 
 // 5. miscellaneous
 int max(int a, int b);
@@ -238,6 +240,10 @@ node *search(node *n, int val)
     {
         return n;
     }
+}
+
+void print_tree(node* r){
+
 }
 
 int main()
