@@ -30,13 +30,13 @@ qnode *cqnode(node *ad)
     return newnode;
 }
 
-queue * queue_init(queue* q){
+void queue_init(queue* q){
     q->head = NULL;
     q->tail = NULL;
     q->size = 0;
 }
 
-void *q_push(queue* q, node*ad){
+void q_push(queue* q, node*ad){
     qnode *newnode = cqnode(ad);
     if(newnode == NULL){
         printf("malloc error");
@@ -44,6 +44,7 @@ void *q_push(queue* q, node*ad){
     }
     if(q->head == NULL){
         q->head = newnode;
+        q->tail = newnode;
         q->size++;
         return;
     }
@@ -56,19 +57,20 @@ void *q_push(queue* q, node*ad){
     return;
 }   
 
-void *q_pop(queue*q){
-    if(q->head == NULL){
+void q_pop(queue*q){
+    if(q->head == NULL)
+    {
         printf("empty queue");
         return;
     }
-    if(q->head->next == NULL){
-        free(q->head);
-        q->head = NULL;
-    }
-    else{
 
-    }
+    qnode *temp = q->head->next;
+    free(q->head);
+    q->head = temp;
+    return; 
 }
+
+
 // 1. insert
 node *insert(node *rnode, int val);
 // llnode *lln_insert_tail(llnode *head, node *ad);
@@ -315,23 +317,30 @@ node *search(node *n, int val)
     {
         search(n->right, val);
     }
-    else if (val == n->val)
+    else
     {
         return n;
     }
 }
 
-// void print_tree(node *r)
-// {
-//     llnode *head = cllnode(r);
-//     if (r == NULL)
-//     {
-//         printf("Empty tree");
-//         return;
-//     }
-//     while()
-
-// }
+void print_tree(node *r)
+{
+    queue *q = (queue*)malloc(sizeof(queue));
+    queue_init(q);
+    if(r == NULL){
+        printf("Empty Tree");
+        return;
+    }
+    q_push(q, r);
+    while(q->head != NULL){
+        printf("%d ", q->head->ad->val);
+        if(q->head->ad->left)
+            q_push(q, q->head->ad->left);
+        if(q->head->ad->right)
+            q_push(q, q->head->ad->right);
+        q_pop(q);
+    }
+}
 
 int main()
 {
@@ -340,7 +349,7 @@ int main()
     root = insert(root, 9);
     root = insert(root, 11);
     root = insert(root, 8);
-    root = delete_node(root, 11);
-    printf("%d", root->left->val);
+    
+    print_tree(root);
     return 0;
 }
