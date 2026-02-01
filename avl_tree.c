@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
 typedef struct Node
 {
@@ -22,100 +23,43 @@ typedef struct queue
     int size;
 } queue;
 
-qnode *cqnode(node *ad)
+// hau wing shing
+typedef struct dummy
 {
-    qnode *newnode = (qnode *)malloc(sizeof(qnode));
-    newnode->ad = ad;
-    newnode->next = NULL;
-    return newnode;
-}
-
-void queue_init(queue* q){
-    q->head = NULL;
-    q->tail = NULL;
-    q->size = 0;
-}
-
-void q_push(queue* q, node*ad){
-    qnode *newnode = cqnode(ad);
-    if(newnode == NULL){
-        printf("malloc error");
-        return;
-    }
-    if(q->head == NULL){
-        q->head = newnode;
-        q->tail = newnode;
-        q->size++;
-        return;
-    }
-    else{
-        qnode *tail = q->tail;
-        tail->next = newnode;
-        q->tail = newnode;
-        q->size++;
-    }
-    return;
-}   
-
-void q_pop(queue*q){
-    if(q->head == NULL)
-    {
-        printf("empty queue");
-        return;
-    }
-
-    qnode *temp = q->head->next;
-    free(q->head);
-    q->head = temp;
-    return; 
-}
-
+    node *val;
+    struct dummy *next;
+} ll_node;
+// hau wing shing end
 
 // 1. insert
 node *insert(node *rnode, int val);
-// llnode *lln_insert_tail(llnode *head, node *ad);
 
 // 2. delete
 node *delete_node(node *n, int val);
+
 // 3. search
 node *search(node *n, int val);
 
 // 4. functions
 node *cnewnode(int val);
-// llnode *cllnode(node *ptr);
 node *right_rotate(node *y);
 node *left_rotate(node *y);
 void update_tree_height(node *root);
 void balance_check(node *root);
 void print_tree(node *r);
+void print_tree2(node *r);
 
 // 5. miscellaneous
 int max(int a, int b);
 int height(node *root);
 int balance_fac(node *n);
+node *successor(node *n);
 
-// llnode *lln_insert_tail(llnode *head, node *ad)
-// {
-//     llnode *newnode = cllnode(ad);
-//     if (head == NULL)
-//     {
-//         return newnode;
-//     }
-//     llnode *cur = head;
-//     while(cur->next != NULL){
-//         cur = cur->next;
-//     }
-//     cur->next = newnode;
-//     return head;
-// }
-
-// llnode *cllnode(node *ptr)
-// {
-//     llnode *newnode = (llnode *)malloc(sizeof(llnode));
-//     newnode->ad = ptr;
-//     newnode->next = NULL;
-//     return newnode;
-// }
+// 6. queue
+qnode *cqnode(node *ad);
+void queue_init(queue *q);
+void q_push(queue *q, node *ad);
+void q_pop(queue *q);
 
 int max(int a, int b)
 {
@@ -255,7 +199,25 @@ node *delete_node(node *n, int val)
 
     else if (val == n->val)
     {
-        return NULL;
+        if (n->left == NULL || n->right == NULL)
+        {
+            node *temp = n;
+            free(n);
+            if (n->left == NULL && n->right == NULL)
+                return NULL;
+            else if (n->left)
+
+                return temp;
+
+            else
+                return temp;
+        }
+        else
+        {
+            node *sus = successor(n);
+            n->val = sus->val;
+            n->right = delete_node(n->right, sus->val);
+        }
     }
 
     n->height = height(n);
@@ -288,6 +250,17 @@ node *delete_node(node *n, int val)
     }
 
     return n;
+}
+
+node *successor(node *n)
+{
+
+    node *cur = n->right;
+    while (cur->left != NULL)
+    {
+        cur = cur->left;
+    }
+    return cur;
 }
 
 void update_tree_height(node *root)
@@ -325,21 +298,106 @@ node *search(node *n, int val)
 
 void print_tree(node *r)
 {
-    queue *q = (queue*)malloc(sizeof(queue));
+    queue *q = (queue *)malloc(sizeof(queue));
     queue_init(q);
-    if(r == NULL){
+    if (r == NULL)
+    {
         printf("Empty Tree");
         return;
     }
     q_push(q, r);
-    while(q->head != NULL){
+    int layer_n = 1;
+    int next_ln = 0;
+    while (q->head != NULL)
+    {
         printf("%d ", q->head->ad->val);
-        if(q->head->ad->left)
+        if (q->head->ad->left)
             q_push(q, q->head->ad->left);
-        if(q->head->ad->right)
+        if (q->head->ad->right)
             q_push(q, q->head->ad->right);
         q_pop(q);
+        layer_n--;
+        if (layer_n == 0)
+            printf("\n");
     }
+}
+
+// hau wing shing
+void print_tree2(node *r)
+{
+    ll_node *current = malloc(sizeof(ll_node));
+    *current = (ll_node){r, NULL};
+    ll_node *end = current;
+    while (current != NULL)
+    {
+        if (current->val != NULL)
+        {
+            printf("%d\n", current->val->val);
+            end->next = malloc(sizeof(ll_node));
+            *end->next = (ll_node){current->val->left, NULL};
+            end->next->next = malloc(sizeof(ll_node));
+            *end->next->next = (ll_node){current->val->right, NULL};
+            end = end->next->next;
+        }
+        ll_node *old = current;
+        current = current->next;
+        free(old);
+    }
+}
+// hau wing shing end
+
+qnode *cqnode(node *ad)
+{
+    qnode *newnode = (qnode *)malloc(sizeof(qnode));
+    newnode->ad = ad;
+    newnode->next = NULL;
+    return newnode;
+}
+
+void queue_init(queue *q)
+{
+    q->head = NULL;
+    q->tail = NULL;
+    q->size = 0;
+}
+
+void q_push(queue *q, node *ad)
+{
+    qnode *newnode = cqnode(ad);
+    if (newnode == NULL)
+    {
+        printf("malloc error");
+        return;
+    }
+    if (q->head == NULL)
+    {
+        q->head = newnode;
+        q->tail = newnode;
+        q->size++;
+        return;
+    }
+    else
+    {
+        qnode *tail = q->tail;
+        tail->next = newnode;
+        q->tail = newnode;
+        q->size++;
+    }
+    return;
+}
+
+void q_pop(queue *q)
+{
+    if (q->head == NULL)
+    {
+        printf("empty queue");
+        return;
+    }
+
+    qnode *temp = q->head->next;
+    free(q->head);
+    q->head = temp;
+    return;
 }
 
 int main()
@@ -349,7 +407,8 @@ int main()
     root = insert(root, 9);
     root = insert(root, 11);
     root = insert(root, 8);
-    
+
     print_tree(root);
+
     return 0;
 }
