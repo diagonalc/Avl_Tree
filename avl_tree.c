@@ -201,16 +201,9 @@ node *delete_node(node *n, int val)
     {
         if (n->left == NULL || n->right == NULL)
         {
-            node *temp = n;
+            node *temp = (n->left) ? n->left : n->right;
             free(n);
-            if (n->left == NULL && n->right == NULL)
-                return NULL;
-            else if (n->left)
-
-                return temp;
-
-            else
-                return temp;
+            return temp;
         }
         else
         {
@@ -312,13 +305,25 @@ void print_tree(node *r)
     {
         printf("%d ", q->head->ad->val);
         if (q->head->ad->left)
+        {
             q_push(q, q->head->ad->left);
+            next_ln++;
+        }
+
         if (q->head->ad->right)
+        {
             q_push(q, q->head->ad->right);
+            next_ln++;
+        }
+
         q_pop(q);
         layer_n--;
         if (layer_n == 0)
+        {
             printf("\n");
+            layer_n = next_ln;
+            next_ln = 0;
+        }
     }
 }
 
@@ -407,7 +412,7 @@ int main()
     root = insert(root, 9);
     root = insert(root, 11);
     root = insert(root, 8);
-
+    root = delete_node(root, 10);
     print_tree(root);
 
     return 0;
