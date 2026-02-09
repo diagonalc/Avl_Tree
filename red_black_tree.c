@@ -65,6 +65,6 @@ node *insert(int val, node *r)
         lr0 = (gp->left == p) ? 0 : 1;
         // if (gp->)
         // {
-        // }
+        //         }
     }
 }
