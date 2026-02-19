@@ -10,6 +10,14 @@ typedef struct node
     int colour;
 } node;
 
+//functions:
+node *createnode(int val);
+node *left_rotate(node *y);
+node *right_rotate(node *y);
+node *insert(node *root, int val);
+node *search(node *root, int target);
+node *delete_node(node *root, int val);
+
 node *createnode(int val)
 {
     node *newnode = (node *)malloc(sizeof(node));
@@ -166,10 +174,94 @@ node *insert(int val, node *r)
             {
 
             }
-            ... I GIVE UP... 
+            ... I GIVE UP...
             知錯...
         }
     }
 }
 
 */
+
+node *insert(node *root, int val)
+{
+    // BST insertion
+    if (root == NULL)
+    {
+        if (root->parent)
+            return createnode(val);
+        else
+        {
+            node *n = createnode(val);
+            n->colour = 0;
+            return n;
+        }
+    }
+
+    else if (val < root->val)
+        root->left = insert(root->left, val);
+    else if (val > root->val)
+        root->right = insert(root->right, val);
+    else
+    {
+        printf("Node exists already");
+        return root;
+    }
+
+    if (root->colour == 1 && (root->left->colour == 1 || root->right->colour == 1))
+    {
+        node *uncle = (root->parent->left != root) ? root->parent->left : root->parent->right;
+        // parent to root is left or right: left=0, right=1
+        int lr = (root->parent->left == root) ? 0 : 1;
+
+        if (uncle == NULL || uncle->colour == 0)
+        {
+            // LL
+            if (lr == 0 && root->left->colour == 1)
+                return left_rotate(root);
+            // RR
+            else if (lr == 1 && root->right->colour == 1)
+                return right_rotate(root);
+            // LR
+            else if (lr == 0 && root->right->colour == 1)
+            {
+                root->left = left_rotate(root->left);
+                return right_rotate(root);
+            }
+            // RR
+            else
+            {
+                root->right = right_rotate(root->right);
+                return left_rotate(root);
+            }
+        }
+        else
+        {
+            root->colour = 0;
+            uncle->colour = 0;
+            root->parent->colour = 1;
+            return root->parent;
+        }
+    }
+}
+
+//unfin
+node *delete_node(node *root, int val){
+    if(search(root, val) == NULL)
+        return root;
+    if (val > root->val){
+        delete_node(root->right, val);
+    }
+}
+
+node* search(node* root, int target){
+    if(root == NULL){
+        printf("Node does not exist\n");
+        return NULL;
+    }
+    if(target>root->val)
+        return search(root->right, target);
+    else if(target<root->val)
+        return search(root->left, target);
+    else if(target == root->val)
+        return root;
+}

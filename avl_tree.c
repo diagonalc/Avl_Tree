@@ -127,6 +127,7 @@ node *left_rotate(node *y)
 node *insert(node *rnode, int val)
 {
 
+    //BST insert
     if (rnode == NULL)
     {
         return cnewnode(val);
@@ -277,11 +278,11 @@ node *search(node *n, int val)
     }
     if (val < n->val)
     {
-        search(n->left, val);
+        return search(n->left, val);
     }
     else if (val > n->val)
     {
-        search(n->right, val);
+        return search(n->right, val);
     }
     else
     {
