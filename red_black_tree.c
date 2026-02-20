@@ -10,7 +10,7 @@ typedef struct node
     int colour;
 } node;
 
-//functions:
+// functions:
 node *createnode(int val);
 node *left_rotate(node *y);
 node *right_rotate(node *y);
@@ -244,24 +244,28 @@ node *insert(node *root, int val)
     }
 }
 
-//unfin
-node *delete_node(node *root, int val){
-    if(search(root, val) == NULL)
+// unfin
+node *delete_node(node *root, int val)
+{
+    if (search(root, val) == NULL)
         return root;
-    if (val > root->val){
+    if (val > root->val)
+    {
         delete_node(root->right, val);
     }
 }
 
-node* search(node* root, int target){
-    if(root == NULL){
+node *search(node *root, int target)
+{
+    if (root == NULL)
+    {
         printf("Node does not exist\n");
         return NULL;
     }
-    if(target>root->val)
+    if (target > root->val)
         return search(root->right, target);
-    else if(target<root->val)
+    else if (target < root->val)
         return search(root->left, target);
-    else if(target == root->val)
+    else if (target == root->val)
         return root;
 }
