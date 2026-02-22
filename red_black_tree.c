@@ -209,37 +209,38 @@ node *insert(node *root, int val)
 
     if (root->colour == 1 && (root->left->colour == 1 || root->right->colour == 1))
     {
-        node *uncle = (root->parent->left != root) ? root->parent->left : root->parent->right;
+        node *parent = root->parent;
+        node *uncle = (parent->left != root) ? parent->left : parent->right;
         // parent to root is left or right: left=0, right=1
-        int lr = (root->parent->left == root) ? 0 : 1;
+        int lr = (parent->left == root) ? 0 : 1;
 
         if (uncle == NULL || uncle->colour == 0)
         {
             // LL
             if (lr == 0 && root->left->colour == 1)
-                return left_rotate(root);
+                return right_rotate(parent);
             // RR
             else if (lr == 1 && root->right->colour == 1)
-                return right_rotate(root);
+                return left_rotate(parent);
             // LR
             else if (lr == 0 && root->right->colour == 1)
             {
-                root->left = left_rotate(root->left);
-                return right_rotate(root);
+                parent->left = left_rotate(root);
+                return right_rotate(parent);
             }
             // RR
             else
             {
-                root->right = right_rotate(root->right);
-                return left_rotate(root);
+                parent->right = right_rotate(root);
+                return left_rotate(parent);
             }
         }
         else
         {
             root->colour = 0;
             uncle->colour = 0;
-            root->parent->colour = 1;
-            return root->parent;
+            parent->colour = 1;
+            return parent;
         }
     }
 }
@@ -249,10 +250,23 @@ node *delete_node(node *root, int val)
 {
     if (search(root, val) == NULL)
         return root;
-    if (val > root->val)
+    if (root->val == val)
     {
-        delete_node(root->right, val);
+        if (root->left == NULL || root->right == NULL)
+        {
+            node *temp = (root->left) ? root->left : root->right;
+            free(root);
+            return temp;
+        }
+        else{
+            //...
+        }
     }
+    else if (val > root->val)
+        root->right = delete_node(root->right, val);
+    else if(val < root->val)
+        root->left = delete_node(root->left, val);
+    
 }
 
 node *search(node *root, int target)
