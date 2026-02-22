@@ -258,15 +258,15 @@ node *delete_node(node *root, int val)
             free(root);
             return temp;
         }
-        else{
+        else
+        {
             //...
         }
     }
     else if (val > root->val)
         root->right = delete_node(root->right, val);
-    else if(val < root->val)
+    else if (val < root->val)
         root->left = delete_node(root->left, val);
-    
 }
 
 node *search(node *root, int target)
