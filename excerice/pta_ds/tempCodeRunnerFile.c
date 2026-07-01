@@ -91,7 +91,7 @@ bool dfs(int v, int visited[], int d)
 {
     bool re = false;
     visited[v] = 1;
-    if ((250 - pow(graph[v].x, 2)) < pow(d, 2) || (250 - pow(graph[v].y, 2)) < pow(d, 2))
+    if ((2500 - pow(graph[v].x, 2)) < pow(d, 2) || (2500 - pow(graph[v].y, 2)) < pow(d, 2))
         return true;
     adjn *cur = graph[v].head;
     while (cur)
@@ -110,12 +110,16 @@ int main()
     init_graph();
     build_graph(n, d);
     int visited[MAX_V] = {0};
+    node st_pt = {0, 0, NULL};
     for (int i = 0; i < n; i++)
     {
-        if (dfs(i, visited, d))
+        if (prox(st_pt, graph[i], d + 7.5))
         {
-            printf("Yes");
-            return 0;
+            if (dfs(i, visited, d))
+            {
+                printf("Yes");
+                return 0;
+            }
         }
     }
     printf("No");

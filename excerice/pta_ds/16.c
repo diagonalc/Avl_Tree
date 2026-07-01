@@ -37,7 +37,7 @@ adjn *create_adjn(int vertex_index)
     return nn;
 }
 
-void *insert(int v, int vi)
+void insert(int v, int vi)
 {
     adjn *nn = create_adjn(vi);
     if (graph[v].head == NULL)
@@ -62,7 +62,7 @@ void *insert(int v, int vi)
     }
 }
 
-bool prox(node a, node b, int d)
+bool prox(node a, node b, double d)
 {
     if ((pow(a.x - b.x, 2) + pow(a.y - b.y, 2)) <= pow(d, 2))
         return true;
@@ -89,18 +89,19 @@ void build_graph(int n, int d)
 
 bool dfs(int v, int visited[], int d)
 {
-    bool re = false;
+    
     visited[v] = 1;
-    if ((250 - pow(graph[v].x, 2)) < pow(d, 2) || (250 - pow(graph[v].y, 2)) < pow(d, 2))
+    if (pow(50 - graph[v].x, 2) <= pow(d, 2) || pow(50 - graph[v].y, 2) <= pow(d, 2))
         return true;
     adjn *cur = graph[v].head;
     while (cur)
     {
         if (visited[cur->ver_index] == 0)
-            re = dfs(cur->ver_index, visited, d);
+            if(dfs(cur->ver_index, visited, d))
+                return true;
         cur = cur->next;
     }
-    return re;
+    return false;
 }
 
 int main()
@@ -110,12 +111,20 @@ int main()
     init_graph();
     build_graph(n, d);
     int visited[MAX_V] = {0};
+    node st_pt = {0, 0, NULL};
+    if(d+7.5>=50){
+        printf("Yes");
+        return 0;
+    }
     for (int i = 0; i < n; i++)
     {
-        if (dfs(i, visited, d))
+        if (prox(st_pt, graph[i], d + 7.5))
         {
-            printf("Yes");
-            return 0;
+            if (dfs(i, visited, d))
+            {
+                printf("Yes");
+                return 0;
+            }
         }
     }
     printf("No");
