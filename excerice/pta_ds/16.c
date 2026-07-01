@@ -64,7 +64,7 @@ void *insert(int v, int vi)
 
 bool prox(node a, node b, int d)
 {
-    if ((pow(a.x - b.x, 2) + pow(a.y - b.y, 2)) < pow(d, 2))
+    if ((pow(a.x - b.x, 2) + pow(a.y - b.y, 2)) <= pow(d, 2))
         return true;
     return false;
 }
@@ -75,7 +75,7 @@ void build_graph(int n, int d)
         scanf(" %d %d", &graph[i].x, &graph[i].y);
     for (int i = 0; i < n; i++)
     {
-        for (int j = i + 1; i < n; j++)
+        for (int j = i + 1; j < n; j++)
         {
             if (i == j)
                 continue;
@@ -109,7 +109,7 @@ int main()
     scanf("%d %d", &n, &d);
     init_graph();
     build_graph(n, d);
-    int visited[MAX_V];
+    int visited[MAX_V] = {0};
     for (int i = 0; i < n; i++)
     {
         if (dfs(i, visited, d))
