@@ -98,11 +98,14 @@ int bfs(int n, int v, queue *q)
     return count;
 }
 
-void sds(int n)
+void sds(int n, queue* q)
 {
-    int ct = 0;
+    
     for (int i = 0; i < n; i++)
     {
+        int ct = bfs(n, i, q);
+        printf("%d\n", ct);
+        //printf("%d: %.2lf\%\n", i, ct / n);
     }
 }
 
@@ -117,13 +120,13 @@ int main()
     int n, m;
     queue *q = init_q();
     scanf("%d %d", &n, &m);
-    for (int i = 0; i < n; i++)
+    for (int i = 0; i < m; i++)
     {
         int v1, v2;
         scanf(" %d %d", &v1, &v2);
         insert(v1, v2);
     }
-    int test = bfs(n, 0, q);
-    printf("%d", test);
+
+    sds(n, q);
     return 0;
 }
