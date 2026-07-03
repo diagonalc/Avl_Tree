@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #define MAX_V 1000
 
 int graph[MAX_V][MAX_V] = {0};
@@ -60,10 +61,30 @@ int dequeue(queue *q)
     return re;
 }
 
+bool is_empty(queue *q)
+{
+    return (q->size == 0) ? true : false;
+}
+
 int bfs(int n, int v, queue *q)
 {
     int visited[MAX_V] = {0};
-    enqueue(0, q);
+    int count = 0;
+    enqueue(v, q);
+    while (!is_empty(q))
+    {
+        int cur = dequeue(q);
+        visited[cur] = 1;
+        for (int i = 0; i < n; i++)
+        {
+            if (i == cur)
+                continue;
+            if (graph[i][cur] || graph[cur][i])
+            {
+                enqueue(i, q);
+            }
+        }
+    }
 }
 
 void sds(int n)
