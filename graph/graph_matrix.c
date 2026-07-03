@@ -68,7 +68,7 @@ void bfs(graph *g, int vertex)
 
     int level = 0;
     int last_curLv = vertex;
-    int last_nxtLv;
+    int last_nxtLv; //the last vertex in the next level
 
     visited[vertex] = 1;
     queue *q = init_queue(q);

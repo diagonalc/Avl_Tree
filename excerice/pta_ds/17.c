@@ -8,7 +8,7 @@ int graph[MAX_V][MAX_V] = {0};
 typedef struct queue_node
 {
     int val;
-    struct qnode *next;
+    struct queue_node *next;
 } qnode;
 
 typedef struct queue
@@ -18,9 +18,9 @@ typedef struct queue
     int size;
 } queue;
 
-queue *init_q(queue *q)
+queue *init_q()
 {
-    q = malloc(sizeof(queue));
+    queue *q = malloc(sizeof(queue));
     q->head = NULL;
     q->tail = NULL;
     q->size = 0;
@@ -70,8 +70,11 @@ int bfs(int n, int v, queue *q)
 {
     int visited[MAX_V] = {0};
     int count = 0;
+    int level = 0;
+    int last_curlv = v;
+    int last_nxtlv;
     enqueue(v, q);
-    while (!is_empty(q))
+    while ((!is_empty(q)) && level < 7)
     {
         int cur = dequeue(q);
         visited[cur] = 1;
@@ -79,12 +82,20 @@ int bfs(int n, int v, queue *q)
         {
             if (i == cur)
                 continue;
-            if (graph[i][cur] || graph[cur][i])
+            if ((graph[i][cur] || graph[cur][i]) && visited[i] == 0)
             {
                 enqueue(i, q);
+                count++;
+                last_nxtlv = i;
             }
         }
+        if (last_curlv == cur)
+        {
+            level++;
+            last_curlv = last_nxtlv;
+        }
     }
+    return count;
 }
 
 void sds(int n)
@@ -104,6 +115,7 @@ void insert(int v1, int v2)
 int main()
 {
     int n, m;
+    queue *q = init_q();
     scanf("%d %d", &n, &m);
     for (int i = 0; i < n; i++)
     {
@@ -111,5 +123,7 @@ int main()
         scanf(" %d %d", &v1, &v2);
         insert(v1, v2);
     }
-    sds(n);
+    int test = bfs(n, 0, q);
+    printf("%d", test);
+    return 0;
 }
