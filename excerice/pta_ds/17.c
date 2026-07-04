@@ -78,7 +78,7 @@ int bfs(int n, int v, queue *q)
     {
         int cur = dequeue(q);
         visited[cur] = 1;
-        for (int i = 0; i < n; i++)
+        for (int i = 1; i <= n; i++)
         {
             if (i == cur)
                 continue;
@@ -101,7 +101,7 @@ int bfs(int n, int v, queue *q)
 void sds(int n, queue* q)
 {
     
-    for (int i = 0; i < n; i++)
+    for (int i = 1; i <= n; i++)
     {
         int ct = bfs(n, i, q);
         printf("%d\n", ct);
