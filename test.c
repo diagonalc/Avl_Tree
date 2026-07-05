@@ -3,7 +3,6 @@
 
 int main()
 {
-    char name[10];
-    scanf("%s", name);
-    printf("%s", name);
+
+    printf("%lf", ((double)10 / 10) * 100);
 }
