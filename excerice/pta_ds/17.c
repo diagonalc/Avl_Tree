@@ -105,6 +105,7 @@ void sds(int n, queue* q)
     {
         int ct = bfs(n, i, q);
         printf("%d\n", ct);
+        
         //printf("%d: %.2lf\%\n", i, ct / n);
     }
 }
@@ -127,6 +128,7 @@ int main()
         insert(v1, v2);
     }
 
-    sds(n, q);
+    //sds(n, q);
+
     return 0;
 }
