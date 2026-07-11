@@ -150,7 +150,7 @@ void dijkstra(int st, int *dist, int *path)
             break;
         if (vd > dist[vi]) // skip the outdated node, if dist[vi] is shorter than  the distance stores in hnode, there should be a updated hnode inside the heap already
             continue;
-        ;
+        
         collected[vi] = 1;
         for (int i = 0; i < MAX_VERTEX; i++)
         {
