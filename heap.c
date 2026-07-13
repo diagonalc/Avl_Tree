@@ -9,7 +9,6 @@ typedef struct Max_Heap
     int capacity;
 } heap;  
 
-
 // functions:
 heap *init_heap(int maxsize);
 void insert(heap *h, int val);
