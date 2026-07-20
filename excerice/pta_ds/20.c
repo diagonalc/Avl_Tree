@@ -20,7 +20,7 @@ void insert(int v1, int v2, int weight)
     graph[v1][v2] = graph[v2][v1] = weight;
 }
 
-
+//network
 int main()
 {
     return 0;
