@@ -1,251 +1,793 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <windows.h>
-#include <mmsystem.h>
-#include <stdbool.h>
+// Copyright 2022 Charles Lohr, you may use this file or any portions herein under any of the BSD, MIT, or CC0 licenses.
 
-#pragma comment(lib, "winmm.lib")
+#ifndef _MINI_RV32IMAH_H
+#define _MINI_RV32IMAH_H
 
-#ifndef ENABLE_VIRTUAL_TERMINAL_PROCESSING
-#define ENABLE_VIRTUAL_TERMINAL_PROCESSING 0x0004
+/**
+    To use mini-rv32ima.h for the bare minimum, the following:
+
+    #define MINI_RV32_RAM_SIZE ram_amt
+    #define MINIRV32_IMPLEMENTATION
+
+    #include "mini-rv32ima.h"
+
+    Though, that's not _that_ interesting. You probably want I/O!
+
+
+    Notes:
+        * There is a dedicated CLNT at 0x10000000.
+        * There is free MMIO from there to 0x12000000.
+        * You can put things like a UART, or whatever there.
+        * Feel free to override any of the functionality with macros.
+*/
+
+#ifndef MINIRV32WARN
+#define MINIRV32WARN(x...) ;
 #endif
 
-// --- MIDI 音高定义 ---
-#define NOTE_A5 81
-#define NOTE_GS5 80
-#define NOTE_FS5 78
-#define NOTE_E5 76
-#define NOTE_DS5 75
-#define NOTE_D5 74
-#define NOTE_CS5 73
-#define NOTE_C5 72
-#define NOTE_B4 71
-#define NOTE_AS4 70
-#define NOTE_A4 69
-#define NOTE_GS4 68
-#define NOTE_FS4 66
-#define NOTE_E4 64
-#define NOTE_D4 62
-#define REST 0
+#ifndef MINIRV32_DECORATE
+#define MINIRV32_DECORATE static
+#endif
 
-// 音符与歌词数据结构
-typedef struct
+#ifndef MINIRV32_RAM_IMAGE_OFFSET
+#define MINIRV32_RAM_IMAGE_OFFSET 0x80000000
+#endif
+
+#ifndef MINIRV32_MMIO_RANGE
+#define MINIRV32_MMIO_RANGE(n) (0x10000000 <= (n) && (n) < 0x12000000)
+#endif
+
+#ifndef MINIRV32_POSTEXEC
+#define MINIRV32_POSTEXEC(...) ;
+#endif
+
+#ifndef MINIRV32_HANDLE_MEM_STORE_CONTROL
+#define MINIRV32_HANDLE_MEM_STORE_CONTROL(...) ;
+#endif
+
+#ifndef MINIRV32_HANDLE_MEM_LOAD_CONTROL
+#define MINIRV32_HANDLE_MEM_LOAD_CONTROL(...) ;
+#endif
+
+#ifndef MINIRV32_OTHERCSR_WRITE
+#define MINIRV32_OTHERCSR_WRITE(...) ;
+#endif
+
+#ifndef MINIRV32_OTHERCSR_READ
+#define MINIRV32_OTHERCSR_READ(...) ;
+#endif
+
+#ifndef MINIRV32_CUSTOM_MEMORY_BUS
+#define MINIRV32_STORE4(ofs, val) *(uint32_t *)(image + ofs) = val
+#define MINIRV32_STORE2(ofs, val) *(uint16_t *)(image + ofs) = val
+#define MINIRV32_STORE1(ofs, val) *(uint8_t *)(image + ofs) = val
+#define MINIRV32_LOAD4(ofs) *(uint32_t *)(image + ofs)
+#define MINIRV32_LOAD2(ofs) *(uint16_t *)(image + ofs)
+#define MINIRV32_LOAD1(ofs) *(uint8_t *)(image + ofs)
+#define MINIRV32_LOAD2_SIGNED(ofs) *(int16_t *)(image + ofs)
+#define MINIRV32_LOAD1_SIGNED(ofs) *(int8_t *)(image + ofs)
+#endif
+
+// As a note: We quouple-ify these, because in HLSL, we will be operating with
+// uint4's.  We are going to uint4 data to/from system RAM.
+//
+// We're going to try to keep the full processor state to 12 x uint4.
+struct MiniRV32IMAState
 {
-    int pitch;          // MIDI 音高
-    int duration;       // 持续毫秒 (快速摇滚节奏)
-    const char *lyriJp; // 日文 / 罗马音歌词
-    const char *lyriCn; // 中文歌词
-    int pose;           // 唯阿舞台动作 (0-3)
-    int lightColor;     // 舞台灯光主题
-} Note;
+    uint32_t regs[32];
 
-// 《轻飘飘时间》(Fuwa Fuwa Time) 经典高潮曲谱
-Note fuwafuwaScore[] = {
-    // --- Intro Riff / 主歌前奏 ---
-    {NOTE_A4, 160, "Kimi ", "看 著 ", 0, 1},
-    {NOTE_A4, 160, "wo ", "你 ", 1, 1},
-    {NOTE_B4, 160, "mi-te-", "的 姿 ", 1, 2},
-    {NOTE_CS5, 320, "ru to ", "态，", 2, 2},
-    {NOTE_CS5, 160, "i-tsu-", "总 是 ", 0, 3},
-    {NOTE_D5, 160, "mo ", "心 跳 ", 1, 3},
-    {NOTE_CS5, 160, "do-ki-", "加 ", 2, 1},
-    {NOTE_B4, 320, "do-ki! ", "速！", 3, 1},
+    uint32_t pc;
+    uint32_t mstatus;
+    uint32_t cyclel;
+    uint32_t cycleh;
 
-    {NOTE_A4, 160, "Fu-to ", "不 经 ", 0, 2},
-    {NOTE_B4, 160, "me ga ", "意 ", 1, 2},
-    {NOTE_CS5, 160, "a-u ", "视 线 ", 2, 3},
-    {NOTE_E5, 320, "to, ", "相 遇，", 3, 3},
-    {NOTE_D5, 160, "so-ra ", "宛 如 ", 1, 1},
-    {NOTE_CS5, 160, "wo ", "飞 上 ", 2, 1},
-    {NOTE_B4, 400, "to-bu no! ", "天 空！", 3, 2},
+    uint32_t timerl;
+    uint32_t timerh;
+    uint32_t timermatchl;
+    uint32_t timermatchh;
 
-    {REST, 150, "", "", 0, 1},
+    uint32_t mscratch;
+    uint32_t mtvec;
+    uint32_t mie;
+    uint32_t mip;
 
-    // --- 副歌爆发 (Fuwa Fuwa Time!) ---
-    {NOTE_CS5, 200, "FU-WA ", "轻 飘 ", 0, 2},
-    {NOTE_D5, 200, "FU-WA ", "飘 ", 1, 2},
-    {NOTE_E5, 220, "TI-ME! ", "时 间！", 3, 1},
-    {REST, 100, "", "", 0, 1},
-    {NOTE_A4, 150, "(Fu-wa ", "(轻 飘 ", 0, 3},
-    {NOTE_B4, 150, "fu-wa ", "飘 ", 1, 3},
-    {NOTE_CS5, 150, "time!) ", "时 间！)", 2, 3},
+    uint32_t mepc;
+    uint32_t mtval;
+    uint32_t mcause;
 
-    {NOTE_CS5, 200, "FU-WA ", "轻 飘 ", 0, 2},
-    {NOTE_D5, 200, "FU-WA ", "飘 ", 1, 2},
-    {NOTE_E5, 220, "TI-ME! ", "时 间！", 3, 1},
-    {REST, 100, "", "", 0, 1},
-    {NOTE_A4, 150, "(Fu-wa ", "(轻 飘 ", 0, 3},
-    {NOTE_B4, 150, "fu-wa ", "飘 ", 1, 3},
-    {NOTE_CS5, 150, "time!) ", "时 间！)", 2, 3},
+    // Note: only a few bits are used.  (Machine = 3, User = 0)
+    // Bits 0..1 = privilege.
+    // Bit 2 = WFI (Wait for interrupt)
+    // Bit 3+ = Load/Store reservation LSBs.
+    uint32_t extraflags;
+};
 
-    // --- 间奏摇滚段落 ---
-    {NOTE_E5, 180, "Ka-mi ", "神 啊 ", 0, 1},
-    {NOTE_FS5, 180, "sa-ma ", "求 求 ", 1, 1},
-    {NOTE_GS5, 180, "o-ne-", "你 ", 2, 2},
-    {NOTE_A5, 350, "gai! ", "啦！", 3, 2},
+#ifndef MINIRV32_STEPPROTO
+MINIRV32_DECORATE int32_t MiniRV32IMAStep(struct MiniRV32IMAState *state, uint8_t *image, uint32_t vProcAddress, uint32_t elapsedUs, int count);
+#endif
 
-    {NOTE_GS5, 180, "Du-e-", "给 我 ", 1, 3},
-    {NOTE_FS5, 180, "tt-o ", "两 人 独 处 的 ", 2, 3},
-    {NOTE_E5, 180, "ji-kan ", "时 光 ", 0, 1},
-    {NOTE_CS5, 350, "wo! ", "吧！", 3, 1},
+#ifdef MINIRV32_IMPLEMENTATION
 
-    // --- 结尾大合唱高潮 ---
-    {NOTE_CS5, 160, "Sui-mi-", "快 睡 著 的 ", 0, 2},
-    {NOTE_D5, 160, "n ", "梦 ", 1, 2},
-    {NOTE_E5, 160, "bu-so-", "境 ", 2, 3},
-    {NOTE_FS5, 320, "ku da ", "里，", 3, 3},
-    {NOTE_E5, 160, "yo ", "也 想 ", 1, 1},
-    {NOTE_CS5, 160, "wo-sa-", "与 你 ", 2, 1},
-    {NOTE_B4, 400, "ku-ni! ", "相 遇！", 3, 2},
-
-    {NOTE_A4, 200, "HTT ", "放 学 后 ", 0, 1},
-    {NOTE_B4, 200, "ROCK ", "TEA ", 1, 2},
-    {NOTE_CS5, 200, "TIME! ", "TIME!", 2, 3},
-    {NOTE_A5, 600, "YEAH!! 🎸", "耶！！🎸", 3, 1}};
-
-// 唯阿 (Yui) & 吉他 (Giita) 姿态动画
-const char *yuiPoses[4][7] = {
-    {"         ( /  \\ )   🎸Giita!    ",
-     "        (  o . o  )             ",
-     "         \\   =   /---m           ",
-     "       ---/     \\              ",
-     "         /  HTT  \\              ",
-     "        /_________\\             ",
-     "       /___________\\            "},
-    {"       \\ ( /  \\ )               ",
-     "        \\(  ^ . ^ )  🎸Giita!   ",
-     "         \\   v   /--m           ",
-     "          /     \\               ",
-     "         /  HTT  \\              ",
-     "        /_________\\             ",
-     "       /___________\\            "},
-    {"         ( /  \\ ) /             ",
-     "        (  o . o )/  🎸Giita!   ",
-     "         \\   O   /---m          ",
-     "       ---/     \\               ",
-     "         /  HTT  \\              ",
-     "        /_________\\             ",
-     "       /___________\\            "},
-    {"         ✨ 🎸!! ✨              ",
-     "       \\ ( /  \\ ) /             ",
-     "        \\(  ≧ ∇ ≦ )/              ",
-     "         \\   O   /              ",
-     "          | HTT  |              ",
-     "        /___________\\           ",
-     "       /_____________\\          "}};
-
-HMIDIOUT hMidiDevice;
-
-void playMidiNote(int pitch, int velocity)
-{
-    if (pitch == REST)
-        return;
-    DWORD msg = 0x00000090 | (pitch << 8) | (velocity << 16);
-    midiOutShortMsg(hMidiDevice, msg);
-}
-
-void stopMidiNote(int pitch)
-{
-    if (pitch == REST)
-        return;
-    DWORD msg = 0x00000080 | (pitch << 8);
-    midiOutShortMsg(hMidiDevice, msg);
-}
-
-void renderStage(int poseIdx, int colorScheme, const char *lyricsJp, const char *lyricsCn)
-{
-    const char *lights;
-    const char *frame = "\x1b[38;2;255;105;180m"; // HTT 标志性粉色
-
-    switch (colorScheme)
-    {
-    case 1:
-        lights = "\x1b[38;2;255;215;0m";
-        break; // 耀金
-    case 2:
-        lights = "\x1b[38;2;0;225;255m";
-        break; // 青蓝
-    case 3:
-        lights = "\x1b[38;2;255;20;147m";
-        break; // 酷粉
-    default:
-        lights = "\x1b[38;2;255;255;255m";
-        break;
+#ifndef MINIRV32_CUSTOM_INTERNALS
+#define CSR(x) state->x
+#define SETCSR(x, val)  \
+    {                   \
+        state->x = val; \
     }
-
-    printf("\x1b[H"); // 光标复位无闪烁
-
-    printf("%s/-----------------------------------------------\\\x1b[0m\n", frame);
-    printf("%s|\x1b[0m   %s★ HO-KAGO TEA TIME Live! (放学后 Tea Time) ★%s  |\x1b[0m\n", frame, lights, frame);
-    printf("%s|-----------------------------------------------|\x1b[0m\n", frame);
-
-    for (int i = 0; i < 7; i++)
-    {
-        printf("%s|\x1b[0m     %s%s\x1b[0m     %s|\x1b[0m\n",
-               frame,
-               (i == 0 || i == 1) ? "\x1b[38;2;255;215;0m" : "\x1b[38;2;240;240;240m",
-               yuiPoses[poseIdx][i],
-               frame);
+#define REG(x) state->regs[x]
+#define REGSET(x, val)        \
+    {                         \
+        state->regs[x] = val; \
     }
+#endif
 
-    printf("%s|===============================================|\x1b[0m\n", frame);
-    printf("\x1b[38;2;255;182;193m[=================================================]\x1b[0m\n\n");
-
-    printf(" \x1b[38;2;255;215;0m🎸 ROMAJI  :\x1b[0m \x1b[1m%-32s\x1b[0m\n", lyricsJp);
-    printf(" \x1b[38;2;50;205;50m🎤 CHINESE :\x1b[0m \x1b[1m%-32s\x1b[0m\n", lyricsCn);
-}
-
-int main()
+#ifndef MINIRV32_STEPPROTO
+MINIRV32_DECORATE int32_t MiniRV32IMAStep(struct MiniRV32IMAState *state, uint8_t *image, uint32_t vProcAddress, uint32_t elapsedUs, int count)
+#else
+MINIRV32_STEPPROTO
+#endif
 {
-    HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
-    DWORD dwMode = 0;
-    GetConsoleMode(hOut, &dwMode);
-    SetConsoleMode(hOut, dwMode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
-    SetConsoleOutputCP(65001); // UTF-8
+    uint32_t new_timer = CSR(timerl) + elapsedUs;
+    if (new_timer < CSR(timerl))
+        CSR(timerh)
+        ++;
+    CSR(timerl) = new_timer;
 
-    // 打开 Windows MIDI 设备
-    if (midiOutOpen(&hMidiDevice, MIDIMAPPER, 0, 0, CALLBACK_NULL) != MMSYSERR_NOERROR)
+    // Handle Timer interrupt.
+    if ((CSR(timerh) > CSR(timermatchh) || (CSR(timerh) == CSR(timermatchh) && CSR(timerl) > CSR(timermatchl))) && (CSR(timermatchh) || CSR(timermatchl)))
     {
-        printf("Error: Cannot open MIDI device!\n");
+        CSR(extraflags) &= ~4; // Clear WFI
+        CSR(mip) |= 1 << 7;    // MTIP of MIP // https://stackoverflow.com/a/61916199/2926815  Fire interrupt.
+    }
+    else
+        CSR(mip) &= ~(1 << 7);
+
+    // If WFI, don't run processor.
+    if (CSR(extraflags) & 4)
         return 1;
-    }
 
-    // 设置乐器音色为：Overdriven Guitar (过载电吉他 - Program 29)
-    midiOutShortMsg(hMidiDevice, 0x00001DC0);
+    uint32_t trap = 0;
+    uint32_t rval = 0;
+    uint32_t pc = CSR(pc);
+    uint32_t cycle = CSR(cyclel);
 
-    printf("\x1b[?25l");
-    system("cls");
-
-    printf("\n\n");
-    printf("   =============================================\n");
-    printf("      \x1b[38;2;255;105;180mK-ON! - FUWA FUWA TIME (轻飘飘时间)\x1b[0m\n");
-    printf("      \x1b[38;2;255;215;0m演奏者: 放学后 Tea Time (HTT)\x1b[0m\n");
-    printf("   =============================================\n\n");
-    printf("   唯阿正在调试 Giita，准备开始摇滚演唱会...\n");
-    Sleep(2000);
-    system("cls");
-
-    int totalNotes = sizeof(fuwafuwaScore) / sizeof(Note);
-
-    for (int i = 0; i < totalNotes; i++)
+    if ((CSR(mip) & (1 << 7)) && (CSR(mie) & (1 << 7) /*mtie*/) && (CSR(mstatus) & 0x8 /*mie*/))
     {
-        Note n = fuwafuwaScore[i];
+        // Timer interrupt.
+        trap = 0x80000007;
+        pc -= 4;
+    }
+    else // No timer interrupt?  Execute a bunch of instructions.
+        for (int icount = 0; icount < count; icount++)
+        {
+            uint32_t ir = 0;
+            rval = 0;
+            cycle++;
+            uint32_t ofs_pc = pc - MINIRV32_RAM_IMAGE_OFFSET;
 
-        renderStage(n.pose, n.lightColor, n.lyriJp, n.lyriCn);
+            if (ofs_pc >= MINI_RV32_RAM_SIZE)
+            {
+                trap = 1 + 1; // Handle access violation on instruction read.
+                break;
+            }
+            else if (ofs_pc & 3)
+            {
+                trap = 1 + 0; // Handle PC-misaligned access
+                break;
+            }
+            else
+            {
+                ir = MINIRV32_LOAD4(ofs_pc);
+                uint32_t rdid = (ir >> 7) & 0x1f;
 
-        playMidiNote(n.pitch, 120); // 摇滚高力度发音
-        Sleep(n.duration);
-        stopMidiNote(n.pitch);
+                switch (ir & 0x7f)
+                {
+                case 0x37: // LUI (0b0110111)
+                    rval = (ir & 0xfffff000);
+                    break;
+                case 0x17: // AUIPC (0b0010111)
+                    rval = pc + (ir & 0xfffff000);
+                    break;
+                case 0x6F: // JAL (0b1101111)
+                {
+                    int32_t reladdy = ((ir & 0x80000000) >> 11) | ((ir & 0x7fe00000) >> 20) | ((ir & 0x00100000) >> 9) | ((ir & 0x000ff000));
+                    if (reladdy & 0x00100000)
+                        reladdy |= 0xffe00000; // Sign extension.
+                    rval = pc + 4;
+                    pc = pc + reladdy - 4;
+                    break;
+                }
+                case 0x67: // JALR (0b1100111)
+                {
+                    uint32_t imm = ir >> 20;
+                    int32_t imm_se = imm | ((imm & 0x800) ? 0xfffff000 : 0);
+                    rval = pc + 4;
+                    pc = ((REG((ir >> 15) & 0x1f) + imm_se) & ~1) - 4;
+                    break;
+                }
+                case 0x63: // Branch (0b1100011)
+                {
+                    uint32_t immm4 = ((ir & 0xf00) >> 7) | ((ir & 0x7e000000) >> 20) | ((ir & 0x80) << 4) | ((ir >> 31) << 12);
+                    if (immm4 & 0x1000)
+                        immm4 |= 0xffffe000;
+                    int32_t rs1 = REG((ir >> 15) & 0x1f);
+                    int32_t rs2 = REG((ir >> 20) & 0x1f);
+                    immm4 = pc + immm4 - 4;
+                    rdid = 0;
+                    switch ((ir >> 12) & 0x7)
+                    {
+                    // BEQ, BNE, BLT, BGE, BLTU, BGEU
+                    case 0:
+                        if (rs1 == rs2)
+                            pc = immm4;
+                        break;
+                    case 1:
+                        if (rs1 != rs2)
+                            pc = immm4;
+                        break;
+                    case 4:
+                        if (rs1 < rs2)
+                            pc = immm4;
+                        break;
+                    case 5:
+                        if (rs1 >= rs2)
+                            pc = immm4;
+                        break; // BGE
+                    case 6:
+                        if ((uint32_t)rs1 < (uint32_t)rs2)
+                            pc = immm4;
+                        break; // BLTU
+                    case 7:
+                        if ((uint32_t)rs1 >= (uint32_t)rs2)
+                            pc = immm4;
+                        break; // BGEU
+                    default:
+                        trap = (2 + 1);
+                    }
+                    break;
+                }
+                case 0x03: // Load (0b0000011)
+                {
+                    uint32_t rs1 = REG((ir >> 15) & 0x1f);
+                    uint32_t imm = ir >> 20;
+                    int32_t imm_se = imm | ((imm & 0x800) ? 0xfffff000 : 0);
+                    uint32_t rsval = rs1 + imm_se;
+
+                    rsval -= MINIRV32_RAM_IMAGE_OFFSET;
+                    if (rsval >= MINI_RV32_RAM_SIZE - 3)
+                    {
+                        rsval += MINIRV32_RAM_IMAGE_OFFSET;
+                        if (MINIRV32_MMIO_RANGE(rsval)) // UART, CLNT
+                        {
+                            MINIRV32_HANDLE_MEM_LOAD_CONTROL(rsval, rval);
+                        }
+                        else
+                        {
+                            trap = (5 + 1);
+                            rval = rsval;
+                        }
+                    }
+                    else
+                    {
+                        switch ((ir >> 12) & 0x7)
+                        {
+                        // LB, LH, LW, LBU, LHU
+                        case 0:
+                            rval = MINIRV32_LOAD1_SIGNED(rsval);
+                            break;
+                        case 1:
+                            rval = MINIRV32_LOAD2_SIGNED(rsval);
+                            break;
+                        case 2:
+                            rval = MINIRV32_LOAD4(rsval);
+                            break;
+                        case 4:
+                            rval = MINIRV32_LOAD1(rsval);
+                            break;
+                        case 5:
+                            rval = MINIRV32_LOAD2(rsval);
+                            break;
+                        default:
+                            trap = (2 + 1);
+                        }
+                    }
+                    break;
+                }
+                case 0x23: // Store 0b0100011
+                {
+                    uint32_t rs1 = REG((ir >> 15) & 0x1f);
+                    uint32_t rs2 = REG((ir >> 20) & 0x1f);
+                    uint32_t addy = ((ir >> 7) & 0x1f) | ((ir & 0xfe000000) >> 20);
+                    if (addy & 0x800)
+                        addy |= 0xfffff000;
+                    addy += rs1 - MINIRV32_RAM_IMAGE_OFFSET;
+                    rdid = 0;
+
+                    if (addy >= MINI_RV32_RAM_SIZE - 3)
+                    {
+                        addy += MINIRV32_RAM_IMAGE_OFFSET;
+                        if (MINIRV32_MMIO_RANGE(addy))
+                        {
+                            MINIRV32_HANDLE_MEM_STORE_CONTROL(addy, rs2);
+                        }
+                        else
+                        {
+                            trap = (7 + 1); // Store access fault.
+                            rval = addy;
+                        }
+                    }
+                    else
+                    {
+                        switch ((ir >> 12) & 0x7)
+                        {
+                        // SB, SH, SW
+                        case 0:
+                            MINIRV32_STORE1(addy, rs2);
+                            break;
+                        case 1:
+                            MINIRV32_STORE2(addy, rs2);
+                            break;
+                        case 2:
+                            MINIRV32_STORE4(addy, rs2);
+                            break;
+                        default:
+                            trap = (2 + 1);
+                        }
+                    }
+                    break;
+                }
+                case 0x13: // Op-immediate 0b0010011
+                case 0x33: // Op           0b0110011
+                {
+                    uint32_t imm = ir >> 20;
+                    imm = imm | ((imm & 0x800) ? 0xfffff000 : 0);
+                    uint32_t rs1 = REG((ir >> 15) & 0x1f);
+                    uint32_t is_reg = !!(ir & 0x20);
+                    uint32_t rs2 = is_reg ? REG(imm & 0x1f) : imm;
+
+                    if (is_reg && (ir & 0x02000000))
+                    {
+                        switch ((ir >> 12) & 7) // 0x02000000 = RV32M
+                        {
+                        case 0:
+                            rval = rs1 * rs2;
+                            break; // MUL
+#ifndef CUSTOM_MULH                // If compiling on a system that doesn't natively, or via libgcc support 64-bit math.
+                        case 1:
+                            rval = ((int64_t)((int32_t)rs1) * (int64_t)((int32_t)rs2)) >> 32;
+                            break; // MULH
+                        case 2:
+                            rval = ((int64_t)((int32_t)rs1) * (uint64_t)rs2) >> 32;
+                            break; // MULHSU
+                        case 3:
+                            rval = ((uint64_t)rs1 * (uint64_t)rs2) >> 32;
+                            break; // MULHU
+#else
+                            CUSTOM_MULH
+#endif
+                        case 4:
+                            if (rs2 == 0)
+                                rval = -1;
+                            else
+                                rval = ((int32_t)rs1 == INT32_MIN && (int32_t)rs2 == -1) ? rs1 : ((int32_t)rs1 / (int32_t)rs2);
+                            break; // DIV
+                        case 5:
+                            if (rs2 == 0)
+                                rval = 0xffffffff;
+                            else
+                                rval = rs1 / rs2;
+                            break; // DIVU
+                        case 6:
+                            if (rs2 == 0)
+                                rval = rs1;
+                            else
+                                rval = ((int32_t)rs1 == INT32_MIN && (int32_t)rs2 == -1) ? 0 : ((uint32_t)((int32_t)rs1 % (int32_t)rs2));
+                            break; // REM
+                        case 7:
+                            if (rs2 == 0)
+                                rval = rs1;
+                            else
+                                rval = rs1 % rs2;
+                            break; // REMU
+                        }
+                    }
+                    else
+                    {
+                        switch ((ir >> 12) & 7) // These could be either op-immediate or op commands.  Be careful.
+                        {
+                        case 0:
+                            rval = (is_reg && (ir & 0x40000000)) ? (rs1 - rs2) : (rs1 + rs2);
+                            break;
+                        case 1:
+                            rval = rs1 << (rs2 & 0x1F);
+                            break;
+                        case 2:
+                            rval = (int32_t)rs1 < (int32_t)rs2;
+                            break;
+                        case 3:
+                            rval = rs1 < rs2;
+                            break;
+                        case 4:
+                            rval = rs1 ^ rs2;
+                            break;
+                        case 5:
+                            rval = (ir & 0x40000000) ? (((int32_t)rs1) >> (rs2 & 0x1F)) : (rs1 >> (rs2 & 0x1F));
+                            break;
+                        case 6:
+                            rval = rs1 | rs2;
+                            break;
+                        case 7:
+                            rval = rs1 & rs2;
+                            break;
+                        }
+                    }
+                    break;
+                }
+                case 0x0f:    // 0b0001111
+                    rdid = 0; // fencetype = (ir >> 12) & 0b111; We ignore fences in this impl.
+                    break;
+                case 0x73: // Zifencei+Zicsr  (0b1110011)
+                {
+                    uint32_t csrno = ir >> 20;
+                    uint32_t microop = (ir >> 12) & 0x7;
+                    if ((microop & 3)) // It's a Zicsr function.
+                    {
+                        int rs1imm = (ir >> 15) & 0x1f;
+                        uint32_t rs1 = REG(rs1imm);
+                        uint32_t writeval = rs1;
+
+                        // https://raw.githubusercontent.com/riscv/virtual-memory/main/specs/663-Svpbmt.pdf
+                        // Generally, support for Zicsr
+                        switch (csrno)
+                        {
+                        case 0x340:
+                            rval = CSR(mscratch);
+                            break;
+                        case 0x305:
+                            rval = CSR(mtvec);
+                            break;
+                        case 0x304:
+                            rval = CSR(mie);
+                            break;
+                        case 0xC00:
+                            rval = cycle;
+                            break;
+                        case 0x344:
+                            rval = CSR(mip);
+                            break;
+                        case 0x341:
+                            rval = CSR(mepc);
+                            break;
+                        case 0x300:
+                            rval = CSR(mstatus);
+                            break; // mstatus
+                        case 0x342:
+                            rval = CSR(mcause);
+                            break;
+                        case 0x343:
+                            rval = CSR(mtval);
+                            break;
+                        case 0xf11:
+                            rval = 0xff0ff0ff;
+                            break; // mvendorid
+                        case 0x301:
+                            rval = 0x40401101;
+                            break; // misa (XLEN=32, IMA+X)
+                        // case 0x3B0: rval = 0; break; //pmpaddr0
+                        // case 0x3a0: rval = 0; break; //pmpcfg0
+                        // case 0xf12: rval = 0x00000000; break; //marchid
+                        // case 0xf13: rval = 0x00000000; break; //mimpid
+                        // case 0xf14: rval = 0x00000000; break; //mhartid
+                        default:
+                            MINIRV32_OTHERCSR_READ(csrno, rval);
+                            break;
+                        }
+
+                        switch (microop)
+                        {
+                        case 1:
+                            writeval = rs1;
+                            break; // CSRRW
+                        case 2:
+                            writeval = rval | rs1;
+                            break; // CSRRS
+                        case 3:
+                            writeval = rval & ~rs1;
+                            break; // CSRRC
+                        case 5:
+                            writeval = rs1imm;
+                            break; // CSRRWI
+                        case 6:
+                            writeval = rval | rs1imm;
+                            break; // CSRRSI
+                        case 7:
+                            writeval = rval & ~rs1imm;
+                            break; // CSRRCI
+                        }
+
+                        switch (csrno)
+                        {
+                        case 0x340:
+                            SETCSR(mscratch, writeval);
+                            break;
+                        case 0x305:
+                            SETCSR(mtvec, writeval);
+                            break;
+                        case 0x304:
+                            SETCSR(mie, writeval);
+                            break;
+                        case 0x344:
+                            SETCSR(mip, writeval);
+                            break;
+                        case 0x341:
+                            SETCSR(mepc, writeval);
+                            break;
+                        case 0x300:
+                            SETCSR(mstatus, writeval);
+                            break; // mstatus
+                        case 0x342:
+                            SETCSR(mcause, writeval);
+                            break;
+                        case 0x343:
+                            SETCSR(mtval, writeval);
+                            break;
+                        // case 0x3a0: break; //pmpcfg0
+                        // case 0x3B0: break; //pmpaddr0
+                        // case 0xf11: break; //mvendorid
+                        // case 0xf12: break; //marchid
+                        // case 0xf13: break; //mimpid
+                        // case 0xf14: break; //mhartid
+                        // case 0x301: break; //misa
+                        default:
+                            MINIRV32_OTHERCSR_WRITE(csrno, writeval);
+                            break;
+                        }
+                    }
+                    else if (microop == 0x0) // "SYSTEM" 0b000
+                    {
+                        rdid = 0;
+                        if (((csrno & 0xff) == 0x02)) // MRET
+                        {
+                            // https://raw.githubusercontent.com/riscv/virtual-memory/main/specs/663-Svpbmt.pdf
+                            // Table 7.6. MRET then in mstatus/mstatush sets MPV=0, MPP=0, MIE=MPIE, and MPIE=1. La
+                            //  Should also update mstatus to reflect correct mode.
+                            uint32_t startmstatus = CSR(mstatus);
+                            uint32_t startextraflags = CSR(extraflags);
+                            SETCSR(mstatus, ((startmstatus & 0x80) >> 4) | ((startextraflags & 3) << 11) | 0x80);
+                            SETCSR(extraflags, (startextraflags & ~3) | ((startmstatus >> 11) & 3));
+                            pc = CSR(mepc) - 4;
+                        }
+                        else
+                        {
+                            switch (csrno)
+                            {
+                            case 0:
+                                trap = (CSR(extraflags) & 3) ? (11 + 1) : (8 + 1); // ECALL; 8 = "Environment call from U-mode"; 11 = "Environment call from M-mode"
+                                break;
+                            case 1:
+                                trap = (3 + 1);
+                                break;                // EBREAK 3 = "Breakpoint"
+                            case 0x105:               // WFI (Wait for interrupts)
+                                CSR(mstatus) |= 8;    // Enable interrupts
+                                CSR(extraflags) |= 4; // Infor environment we want to go to sleep.
+
+                                if (CSR(cyclel) > cycle)
+                                    CSR(cycleh)
+                                    ++;
+                                SETCSR(cyclel, cycle);
+
+                                MINIRV32_POSTEXEC(pc, ir, trap);
+
+                                SETCSR(pc, pc + 4);
+                                return 1;
+                            default:
+                                trap = (2 + 1);
+                                break; // Illegal opcode.
+                            }
+                        }
+                    }
+                    else
+                        trap = (2 + 1); // Note micrrop 0b100 == undefined.
+                    break;
+                }
+                case 0x2f: // RV32A (0b00101111)
+                {
+                    uint32_t rs1 = REG((ir >> 15) & 0x1f);
+                    uint32_t rs2 = REG((ir >> 20) & 0x1f);
+                    uint32_t irmid = (ir >> 27) & 0x1f;
+
+                    rs1 -= MINIRV32_RAM_IMAGE_OFFSET;
+
+                    // We don't implement load/store from UART or CLNT with RV32A here.
+
+                    if (rs1 >= MINI_RV32_RAM_SIZE - 3)
+                    {
+                        trap = (7 + 1); // Store/AMO access fault
+                        rval = rs1 + MINIRV32_RAM_IMAGE_OFFSET;
+                    }
+                    else
+                    {
+                        rval = MINIRV32_LOAD4(rs1);
+
+                        // Referenced a little bit of https://github.com/franzflasch/riscv_em/blob/master/src/core/core.c
+                        uint32_t dowrite = 1;
+                        switch (irmid)
+                        {
+                        case 2: // LR.W (0b00010)
+                            dowrite = 0;
+                            CSR(extraflags) = (CSR(extraflags) & 0x07) | (rs1 << 3);
+                            break;
+                        case 3:                                                  // SC.W (0b00011) (Make sure we have a slot, and, it's valid)
+                            rval = (CSR(extraflags) >> 3 != (rs1 & 0x1fffffff)); // Validate that our reservation slot is OK.
+                            dowrite = !rval;                                     // Only write if slot is valid.
+                            break;
+                        case 1:
+                            break; // AMOSWAP.W (0b00001)
+                        case 0:
+                            rs2 += rval;
+                            break; // AMOADD.W (0b00000)
+                        case 4:
+                            rs2 ^= rval;
+                            break; // AMOXOR.W (0b00100)
+                        case 12:
+                            rs2 &= rval;
+                            break; // AMOAND.W (0b01100)
+                        case 8:
+                            rs2 |= rval;
+                            break; // AMOOR.W (0b01000)
+                        case 16:
+                            rs2 = ((int32_t)rs2 < (int32_t)rval) ? rs2 : rval;
+                            break; // AMOMIN.W (0b10000)
+                        case 20:
+                            rs2 = ((int32_t)rs2 > (int32_t)rval) ? rs2 : rval;
+                            break; // AMOMAX.W (0b10100)
+                        case 24:
+                            rs2 = (rs2 < rval) ? rs2 : rval;
+                            break; // AMOMINU.W (0b11000)
+                        case 28:
+                            rs2 = (rs2 > rval) ? rs2 : rval;
+                            break; // AMOMAXU.W (0b11100)
+                        default:
+                            trap = (2 + 1);
+                            dowrite = 0;
+                            break; // Not supported.
+                        }
+                        if (dowrite)
+                            MINIRV32_STORE4(rs1, rs2);
+                    }
+                    break;
+                }
+                default:
+                    trap = (2 + 1); // Fault: Invalid opcode.
+                }
+
+                // If there was a trap, do NOT allow register writeback.
+                if (trap)
+                {
+                    SETCSR(pc, pc);
+                    MINIRV32_POSTEXEC(pc, ir, trap);
+                    break;
+                }
+
+                if (rdid)
+                {
+                    REGSET(rdid, rval); // Write back register.
+                }
+            }
+
+            MINIRV32_POSTEXEC(pc, ir, trap);
+
+            pc += 4;
+        }
+
+    // Handle traps and interrupts.
+    if (trap)
+    {
+        if (trap & 0x80000000) // If prefixed with 1 in MSB, it's an interrupt, not a trap.
+        {
+            SETCSR(mcause, trap);
+            SETCSR(mtval, 0);
+            pc += 4; // PC needs to point to where the PC will return to.
+        }
+        else
+        {
+            SETCSR(mcause, trap - 1);
+            SETCSR(mtval, (trap > 5 && trap <= 8) ? rval : pc);
+        }
+        SETCSR(mepc, pc); // TRICKY: The kernel advances mepc automatically.
+        // CSR( mstatus ) & 8 = MIE, & 0x80 = MPIE
+        //  On an interrupt, the system moves current MIE into MPIE
+        SETCSR(mstatus, ((CSR(mstatus) & 0x08) << 4) | ((CSR(extraflags) & 3) << 11));
+        pc = (CSR(mtvec) - 4);
+
+        // If trapping, always enter machine mode.
+        CSR(extraflags) |= 3;
+
+        trap = 0;
+        pc += 4;
     }
 
-    midiOutClose(hMidiDevice);
-
-    system("cls");
-    printf("\n\n   =============================================\n");
-    printf("      \x1b[38;2;255;105;180mTHANK YOU!! FUWA FUWA TIME FINISHED! 🎉🎉\x1b[0m\n");
-    printf("   =============================================\n\n");
-
-    printf("\x1b[?25h");
+    if (CSR(cyclel) > cycle)
+        CSR(cycleh)
+        ++;
+    SETCSR(cyclel, cycle);
+    SETCSR(pc, pc);
     return 0;
 }
-// operating system 2026 jyy
+
+#endif
+
+#endif
+
+
+#define MEM_SIZE(1 << 20)
+#define MEM_OFFSET 0x80000000u
+#define STACK_TOP (MEM_OFFSET + MEM_SIZE)
+struct proc
+{ // Process "virtual machine" state:
+    // Register & memory
+    struct CPUState cpu;
+    uint8_t mem[MEM_SIZE];
+    // Operating-system internal
+    state char buf[256];
+    int buf_len;
+};
+static void proc_init(struct proc *p, const char *path)
+{
+    FILE *f = fopen(path, "rb");
+    fread(p->mem, 1, MEM_SIZE, f);
+    fclose(f);
+    p->cpu.mem = p->mem;
+    p->cpu.mem_offset = MEM_OFFSET;
+    p->cpu.mem_size = MEM_SIZE;
+    memset(p->cpu.regs, 0, sizeof(p->cpu.regs));
+    memset(p->cpu.csrs, 0, sizeof(p->cpu.csrs));
+    p->cpu.csrs[PC] = MEM_OFFSET;
+    p->cpu.regs[SP] = STACK_TOP;
+}
+static int sys_putchar(struct proc *p, char ch)
+{
+    p->buf[p->buf_len++] = ch;
+    if (ch == '\n' || p->buf_len == sizeof(p->buf) - 1)
+    {
+        fwrite(p->buf, 1, p->buf_len, stdout);
+        fflush(stdout);
+        p->buf_len = 0;
+    }
+    return 0;
+}
+static void handle_ecall(struct proc *p)
+{
+    int ret = -1;
+    switch (p->cpu.regs[A7])
+    {
+    case 42:
+        ret = sys_putchar(p, p->cpu.regs[A0]);
+        break;
+    }
+    p->cpu.regs[A0] = ret;
+    // Replicate what MRET does: restore privilege/interrupt state and
+    // resume user execution at the instruction after the ecall.
+    uint32_t ms = p->cpu.csrs[MSTATUS];
+    uint32_t ef = p->cpu.csrs[EXTRAFLAGS];
+    p->cpu.csrs[MSTATUS] = ((ms & 0x80) >> 4) | ((ef & 3) << 11) | 0x80;
+    p->cpu.csrs[EXTRAFLAGS] = (ef & ~3) | ((ms >> 11) & 3);
+    p->cpu.csrs[PC] = p->cpu.csrs[MEPC] + 4;
+    p->cpu.csrs[MCAUSE] = 0;
+}
+int main(int argc, char *argv[])
+{
+    int n = argc - 1;
+    struct proc *procs = calloc(n, sizeof(struct proc));
+    for (int i = 0; i < n; i++)
+        proc_init(&procs[i], argv[i + 1]);
+    int cur = 0;
+    while (1)
+    {
+        struct proc *p = &procs[cur];
+        rv32ima_step(&p->cpu, 1);
+        if (p->cpu.csrs[MCAUSE] == 8)
+            handle_ecall(p);
+        cur = (cur + 1) % n;
+    }
+}
