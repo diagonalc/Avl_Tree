@@ -44,4 +44,4 @@ if the someone want to send a message, denoted as $m$ to the receiver:
 | Encryption | $c\equiv m^e \pmod{n}$ | the sender use the public key $e$ (encoder) to compute cypher $c$|
 | Decryption | $m\equiv c^d \pmod{n}$ | the receiver use the private key $d$ (decoder) to compute message $m$|
 
-/
+//
