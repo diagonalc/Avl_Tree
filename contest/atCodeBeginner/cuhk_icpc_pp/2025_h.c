@@ -26,4 +26,6 @@ int main()
         }
     }
     int same = l - dc;
+    int num_needtochange = ;
+
 }
